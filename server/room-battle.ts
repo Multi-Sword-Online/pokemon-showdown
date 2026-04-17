@@ -21,6 +21,9 @@ import type { RoomSettings } from './rooms';
 import type { BestOfGame } from './room-battle-bestof';
 import type { GameTimerSettings } from '../sim/dex-formats';
 
+//DEBUG Import
+import {FS} from '../lib/fs';
+
 type ChannelIndex = 0 | 1 | 2 | 3 | 4;
 export type PlayerIndex = 1 | 2 | 3 | 4;
 export type ChallengeType = 'rated' | 'unrated' | 'challenge' | 'tour';
@@ -863,16 +866,28 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 		if (this.room.rated && !this.options.isBestOfSubBattle) {
 			void this.updateLadder(p1score, winnerid);
 		}
-			// LOG EVERYTHING
-			void this.logBattle(p1score);
+			// LOG EVERYTHING DEBIG
+		void FS('logs/debug-room-battle.txt').append(
+			`ENTER log block room=${this.roomid} winner=${winnerid} rated=${this.room.rated} bestOfSub=${this.options.isBestOfSubBattle}\n`
+		);
 
-			const uploader = Users.get(winnerid || this.p1.id);
-			if (uploader?.connections[0]) {
-				Chat.parse('Replay autosaved to ' + link, this.room, uploader, uploader.connections[0]);
-			}
-			else {
-				this.logData = null;
-			}
+		void this.logBattle(p1score).then(() => {
+			return FS('logs/debug-room-battle.txt').append(
+				`logBattle resolved room=${this.roomid}\n`
+			);
+		}).catch(err => {
+			return FS('logs/errors.txt').append(
+				`logBattle failed room=${this.roomid}: ${err?.stack || err}\n`
+			);
+		});
+
+		const uploader = Users.get(winnerid || this.p1.id);
+		if (uploader?.connections[0]) {
+			Chat.parse('Replay autosaved to ' + link, this.room, uploader, uploader.connections[0]);
+		}
+		else {
+			this.logData = null;
+		}
 
 		this.room.parent?.game?.onBattleWin?.(this.room, winnerid);
 
