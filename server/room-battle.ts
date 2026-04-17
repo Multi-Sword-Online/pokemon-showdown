@@ -863,24 +863,25 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 
 		Chat.runHandlers('onBattleEnd', this, winnerid, this.players.map(p => p.id));
 
-		if (this.room.rated && !this.options.isBestOfSubBattle) {
-			void this.updateLadder(p1score, winnerid);
-		}
-			// LOG EVERYTHING DEBIG
+		// DEBUG
 		void FS('logs/debug-room-battle.txt').append(
 			`ENTER log block room=${this.roomid} winner=${winnerid} rated=${this.room.rated} bestOfSub=${this.options.isBestOfSubBattle}\n`
 		);
-
-		void this.logBattle(p1score).then(() => {
-			return FS('logs/debug-room-battle.txt').append(
-				`logBattle resolved room=${this.roomid}\n`
-			);
-		}).catch(err => {
-			return FS('logs/errors.txt').append(
-				`logBattle failed room=${this.roomid}: ${err?.stack || err}\n`
-			);
-		});
-
+		
+		if (this.room.rated && !this.options.isBestOfSubBattle) {
+			void this.updateLadder(p1score, winnerid);
+		} else {
+			void this.logBattle(p1score).then(() => {
+				return FS('logs/debug-room-battle.txt').append(
+					`logBattle resolved room=${this.roomid}\n`
+				);
+			}).catch(err => {
+				return FS('logs/errors.txt').append(
+					`logBattle failed room=${this.roomid}: ${err?.stack || err}\n`
+				);
+			});
+		}
+		
 		const uploader = Users.get(winnerid || this.p1.id);
 		if (uploader?.connections[0]) {
 			Chat.parse('Replay autosaved to ' + link, this.room, uploader, uploader.connections[0]);
