@@ -1,5 +1,8 @@
 'use strict';
-
+/**
+* added because the guide told me to -C
+*/
+exports.nofswriting = true ;
 /**
  * The server port - the port to run Pokemon Showdown under
  *
