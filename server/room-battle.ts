@@ -22,7 +22,8 @@ import type { BestOfGame } from './room-battle-bestof';
 import type { GameTimerSettings } from '../sim/dex-formats';
 
 //DEBUG
-import * as nodefs from 'fs'; 
+import {FS} from '../lib/fs';
+import * as nodefs from 'fs';
 
 type ChannelIndex = 0 | 1 | 2 | 3 | 4;
 export type PlayerIndex = 1 | 2 | 3 | 4;
@@ -839,41 +840,79 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 	end(winnerName: unknown) {
 		if (this.ended) return;
 		this.setEnded();
-
-		//DEBUG
 		nodefs.appendFileSync('/app/logs/debug-raw.txt', `ENTER end() room=${this.roomid}\n`);
-		
+	
 		// Declare variables here in case we need them for non-rated battles logging.
 		let p1score = 0.5;
 		const winnerid = toID(winnerName);
-
+	
 		// Check if the battle was rated to update the ladder, return its response, and log the battle.
+		const p1name = this.p1.name;
+		const p2name = this.p2.name;
+	
+		const p1Cap = ('' + p1name).replace(/[^a-zA-Z0-9]+/g, '') as ID;
+		const p2Cap = ('' + p2name).replace(/[^a-zA-Z0-9]+/g, '') as ID;
+	
 		if (winnerid === this.p1.id) {
 			p1score = 1;
 		} else if (winnerid === this.p2.id) {
 			p1score = 0;
 		}
-		Chat.runHandlers('onBattleEnd', this, winnerid, this.players.map(p => p.id));
-		if (this.room.rated && !this.options.isBestOfSubBattle) {
-			void this.updateLadder(p1score, winnerid);
-		} else if (Config.logchallenges) {
-			void this.logBattle(p1score);
-		} else if (!this.options.isBestOfSubBattle) {
-			this.logData = null;
+	
+		const id = this.room.getReplayData().id.split("-")[1];
+		let format = this.format;
+		if (format.includes('@')) {
+			format = format.split('@')[0];
 		}
+		const link = "https://showdown.mso.gg/replays/" + format + "/" + id + "_" + p1Cap + "_vs_" + p2Cap + ".html";
+	
+		Chat.runHandlers('onBattleEnd', this, winnerid, this.players.map(p => p.id));
+	
+		nodefs.appendFileSync(
+			'/app/logs/debug-raw.txt',
+			`BEFORE log branch room=${this.roomid} rated=${this.room.rated} bestOfSub=${this.options.isBestOfSubBattle}\n`
+		);
+	
+		if (this.room.rated && !this.options.isBestOfSubBattle) {
+			nodefs.appendFileSync('/app/logs/debug-raw.txt', `CALLING updateLadder room=${this.roomid}\n`);
+			void this.updateLadder(p1score, winnerid);
+		} else {
+			nodefs.appendFileSync('/app/logs/debug-raw.txt', `ABOUT TO CALL logBattle room=${this.roomid}\n`);
+			void this.logBattle(p1score).then(() => {
+				nodefs.appendFileSync('/app/logs/debug-raw.txt', `logBattle RESOLVED room=${this.roomid}\n`);
+				return FS('logs/debug-room-battle.txt').append(
+					`logBattle resolved room=${this.roomid}\n`
+				);
+			}).catch(err => {
+				nodefs.appendFileSync(
+					'/app/logs/debug-raw.txt',
+					`logBattle FAILED room=${this.roomid}: ${err?.stack || err}\n`
+				);
+				return FS('logs/errors.txt').append(
+					`logBattle failed room=${this.roomid}: ${err?.stack || err}\n`
+				);
+			});
+		}
+	
+		const uploader = Users.get(winnerid || this.p1.id);
+		if (uploader?.connections[0]) {
+			Chat.parse('Replay autosaved to ' + link, this.room, uploader, uploader.connections[0]);
+		}
+	
 		this.room.parent?.game?.onBattleWin?.(this.room, winnerid);
+	
 		// If the room's replay was hidden, don't let users join after the game is over
 		if (this.room.hideReplay) {
 			this.room.settings.modjoin = '%';
 			this.room.setPrivate('hidden');
 		}
 		this.room.update();
-
+	
 		// so it stops showing up in the users' games list
 		for (const player of this.players) {
 			player.getUser()?.games.delete(this.roomid);
 		}
-
+	
 		// If a replay was saved at any point or we were configured to autosavereplays,
 		// reupload when the battle is over to overwrite the partial data (and potentially
 		// reflect any changes that may have been made to the replay's hidden status).
