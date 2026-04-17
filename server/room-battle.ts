@@ -21,6 +21,9 @@ import type { RoomSettings } from './rooms';
 import type { BestOfGame } from './room-battle-bestof';
 import type { GameTimerSettings } from '../sim/dex-formats';
 
+//DEBUG
+import * as nodefs from 'fs'; 
+
 type ChannelIndex = 0 | 1 | 2 | 3 | 4;
 export type PlayerIndex = 1 | 2 | 3 | 4;
 export type ChallengeType = 'rated' | 'unrated' | 'challenge' | 'tour';
@@ -827,6 +830,8 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 			this.score = this.logData!.score;
 			this.inputLog = this.logData!.inputLog;
 			this.started = true;
+			//DEBUG
+			nodefs.appendFileSync('/app/logs/debug-raw.txt', `RECEIVE END room=${this.roomid}\n`);
 			void this.end(this.logData!.winner);
 			break;
 		}
@@ -834,6 +839,10 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 	end(winnerName: unknown) {
 		if (this.ended) return;
 		this.setEnded();
+
+		//DEBUG
+		nodefs.appendFileSync('/app/logs/debug-raw.txt', `ENTER end() room=${this.roomid}\n`);
+		
 		// Declare variables here in case we need them for non-rated battles logging.
 		let p1score = 0.5;
 		const winnerid = toID(winnerName);
