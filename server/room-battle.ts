@@ -841,45 +841,41 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 		// Check if the battle was rated to update the ladder, return its response, and log the battle.
 		const p1name = this.p1.name;
 		const p2name = this.p2.name;
-		
+
 		const p1Cap = ('' + p1name).replace(/[^a-zA-Z0-9]+/g, '') as ID;
 		const p2Cap = ('' + p2name).replace(/[^a-zA-Z0-9]+/g, '') as ID;
-		
+
 		if (winnerid === this.p1.id) {
 			p1score = 1;
 		} else if (winnerid === this.p2.id) {
 			p1score = 0;
 		}
-		
+
 		const id = this.room.getReplayData().id.split("-")[1];
 		let format = this.format;
 		if (format.includes('@')) {
 			format = format.split('@')[0];
 		}
 		const link = "https://showdown.mso.gg/replays/" + format + "/" + id + "_" + p1Cap + "_vs_" + p2Cap + ".html";
-		
+
 		Chat.runHandlers('onBattleEnd', this, winnerid, this.players.map(p => p.id));
-		
+
 		if (this.room.rated && !this.options.isBestOfSubBattle) {
 			void this.updateLadder(p1score, winnerid);
-		} else if (
-			Config.logchallenges &&
-			!this.options.isBestOfSubBattle &&
-			!this.room.settings.isPrivate &&
-			!this.room.hideReplay
-		) {
+		}
+			// LOG EVERYTHING
 			void this.logBattle(p1score);
-		
+
 			const uploader = Users.get(winnerid || this.p1.id);
 			if (uploader?.connections[0]) {
 				Chat.parse('Replay autosaved to ' + link, this.room, uploader, uploader.connections[0]);
 			}
-		} else if (!this.options.isBestOfSubBattle) {
+		} else {
 			this.logData = null;
 		}
-		
+
 		this.room.parent?.game?.onBattleWin?.(this.room, winnerid);
-		
+
 		// If the room's replay was hidden, don't let users join after the game is over
 		if (this.room.hideReplay) {
 			this.room.settings.modjoin = '%';
