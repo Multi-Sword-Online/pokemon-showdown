@@ -885,9 +885,6 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 		if (uploader?.connections[0]) {
 			Chat.parse('Replay autosaved to ' + link, this.room, uploader, uploader.connections[0]);
 		}
-		else {
-			this.logData = null;
-		}
 
 		this.room.parent?.game?.onBattleWin?.(this.room, winnerid);
 
